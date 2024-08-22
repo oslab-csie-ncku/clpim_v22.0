@@ -118,8 +118,9 @@ def build_pim_mem_subsystem(options, sys):
     if not hasattr(sys, 'membus'):
         fatal("Host system doesn't has attribute 'membus'")
 
-    sys.memsubsystem = [SubSystem() for i in range(options.pim_stack_num + 1)]
-
+    sys.memsubsystem = [SubSystem() for i in range(options.pim_stack_num)]
+    # print("sssssssssssssssssssssss")
+    # print(options.pim_stack_num + 1)
     for memsys in sys.memsubsystem:
         memsys.bridge = Bridge(req_size = 32, resp_size = 32,
                                 delay = params.BRIDGE_MEMSUBSYSTEM_DELAY)
@@ -131,7 +132,7 @@ def build_pim_mem_subsystem(options, sys):
         # memsys.bridge.ranges.append(
         #     AddrRange(options.pim_spm_start, size = options.pim_spm_size))
 
-        memsys.xbar_clk_domain = SrcClockDomain(clock = '0.1GHz',
+        memsys.xbar_clk_domain = SrcClockDomain(clock = '1GHz',
                                         voltage_domain = VoltageDomain())
         memsys.xbar = NoncoherentXBar(clk_domain = \
                                                 memsys.xbar_clk_domain)

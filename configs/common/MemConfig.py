@@ -137,7 +137,7 @@ def config_mem(options, system):
 
     # NVM options
     #opt_dram_nvm_type = getattr(options, "dram_nvm_type", None)
-	#opt_dram_nvm_start = getattr(options, "dram_nvm_start", None)
+    #opt_dram_nvm_start = getattr(options, "dram_nvm_start", None)
     #opt_dram_nvm_size = getattr(options, "dram_nvm_size", None)
 
     opt_dram_nvm_type = options.dram_nvm_type
@@ -627,7 +627,7 @@ def config_fspim_hybridstack_mem(options, system):
 
     nvm_intfs = []
     mem_ctrls = []
-    subsystem_mem_ctrl = [[] for i in range(options.pim_stack_num + 1)]
+    subsystem_mem_ctrl = [[] for i in range(options.pim_stack_num )]
 
     if opt_elastic_trace_en and not issubclass(intf, m5.objects.SimpleMemory):
         fatal("When elastic trace is enabled, configure mem-type as "
@@ -664,7 +664,7 @@ def config_fspim_hybridstack_mem(options, system):
         per_dramstack_page = (int)((opt_dram_nvm_start - SPLIT_ZONE_PAGE_FRAME_1GB - APIC_MEMORY_HOLE_INTERVAL) / PAGE_SIZE / options.pim_stack_num)
         #print(int((opt_dram_nvm_start - SPLIT_ZONE_PAGE_FRAME_1GB - APIC_MEMORY_HOLE_INTERVAL) / 4096 / options.pim_stack_num))
         dram_ctrls_num = 0
-        subsystem_mem_ctrl[options.pim_stack_num].append(dram_ctrls_num)
+        subsystem_mem_ctrl[options.pim_stack_num-1].append(dram_ctrls_num)
         dram_ctrls_num += 1
         for i in range(options.pim_stack_num):
             # mem_range include APIC_HOLE, split into two mem_ranges
@@ -801,7 +801,7 @@ def config_fspim_hybridstack_mem(options, system):
             for r in range(len(stack)):
                 print(mem_ctrls[subsystem_mem_ctrl[s][r]].dram.range)
                 mem_ctrls[subsystem_mem_ctrl[s][r]].port = subsystem[s].xbar.mem_side_ports
-            print("-----------------------------------")
+            print("-----------------------------------ji")
     else:
         for i in range(len(mem_ctrls)):
             # Connect the controllers to the membus
