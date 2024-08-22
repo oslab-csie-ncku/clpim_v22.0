@@ -103,7 +103,9 @@ class MemPacket
 
     /** When will request leave the controller */
     Tick readyTime;
-
+    
+    /** When will request actually leave the controller */
+    Tick actReadyTime;
     /** This comes from the outside world */
     const PacketPtr pkt;
 
@@ -202,13 +204,25 @@ class MemPacket
     MemPacket(PacketPtr _pkt, bool is_read, bool is_dram, uint8_t _rank,
                uint8_t _bank, uint32_t _row, uint16_t bank_id, Addr _addr,
                unsigned int _size)
-        : entryTime(curTick()), readyTime(curTick()), pkt(_pkt),
+        : entryTime(curTick()), readyTime(curTick()),
+          actReadyTime(curTick()), pkt(_pkt),
           _requestorId(pkt->requestorId()),
           read(is_read), dram(is_dram), rank(_rank), bank(_bank), row(_row),
           bankId(bank_id), addr(_addr), size(_size), burstHelper(NULL),
           _qosValue(_pkt->qosValue())
     { }
-
+        /**
+         * Function for sorting MemPacket pointer based on actReadyTime
+         *
+         * @param a MemPacket pointer
+         * @param next MemPacket pointer
+         * @return true if actReadyTime of MemPacket pointer 1 < actReadyTime
+         * of MemPacket pointer 2
+         */
+        static bool sortActReadyTime(const MemPacket *mem_pkt,
+                                     const MemPacket *mem_pkt_next) {
+            return mem_pkt->actReadyTime < mem_pkt_next->actReadyTime;
+        };
 };
 
 // The memory packets are store in a multiple dequeue structure,
@@ -491,17 +505,31 @@ class MemCtrl : public qos::MemCtrl
     uint32_t readsThisTime;
 
     /**
+     * We need PIM system SimObject to confirm who the requester is
+     */
+    System *_pimSystem;
+    std::vector<System *>_pimSystems;
+    bool pktFromPIM(PacketPtr pkt) const;
+    bool MEMPacketFromPIM(MemPacket *mem_pkt) const;
+
+    /**
      * Memory controller configuration initialized based on parameter
      * values.
      */
     enums::MemSched memSchedPolicy;
 
     /**
+     * The ratio between internal bandwidth and off-chip bandwidth, i.e.,
+     * bw_ratio = internal bw / off-chip bw
+     */
+    const int bw_ratio;
+    /**
      * Pipeline latency of the controller frontend. The frontend
      * contribution is added to writes (that complete when they are in
      * the write buffer) and reads that are serviced the write buffer.
      */
     const Tick frontendLatency;
+    const Tick frontendLatency_pim;
 
     /**
      * Pipeline latency of the backend and PHY. Along with the
@@ -509,7 +537,7 @@ class MemCtrl : public qos::MemCtrl
      * by the memory.
      */
     const Tick backendLatency;
-
+    const Tick backendLatency_pim;
     /**
      * Length of a command window, used to check
      * command bandwidth

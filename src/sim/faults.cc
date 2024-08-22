@@ -50,15 +50,15 @@
 #include "mem/page_table.hh"
 #include "sim/full_system.hh"
 #include "sim/process.hh"
-
+#include "sim/se_mode_system.hh"
 namespace gem5
 {
 
 void
 FaultBase::invoke(ThreadContext *tc, const StaticInstPtr &inst)
 {
-    panic_if(!FullSystem, "fault (%s) detected @ PC %s",
-             name(), tc->pcState());
+    panic_if((!FullSystem || semodesystem::belongSEsys(tc)),
+              "fault (%s) detected @ PC %s", name(), tc->pcState());
     DPRINTF(Faults, "Fault %s at PC: %s\n", name(), tc->pcState());
 }
 
@@ -95,7 +95,7 @@ void
 GenericPageTableFault::invoke(ThreadContext *tc, const StaticInstPtr &inst)
 {
     bool handled = false;
-    if (!FullSystem) {
+    if (!FullSystem || semodesystem::belongSEsys(tc)) {
         Process *p = tc->getProcessPtr();
         handled = p->fixupFault(vaddr);
     }

@@ -51,7 +51,8 @@ if env['CONF']['TARGET_ISA'] == 'null':
     Return()
 
 SimObject('BadDevice.py', sim_objects=['BadDevice'])
-
+SimObject('TestDevice.py', sim_objects=['TestDevice'])
+Source('testdev.cc')
 Source('baddev.cc')
 Source('intel_8254_timer.cc')
 Source('mc146818.cc')

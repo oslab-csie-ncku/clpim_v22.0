@@ -47,6 +47,7 @@
 #include "debug/NVM.hh"
 #include "debug/QOS.hh"
 #include "mem/mem_interface.hh"
+#include "sim/se_mode_system.hh"
 #include "sim/system.hh"
 
 namespace gem5
@@ -70,9 +71,11 @@ MemCtrl::MemCtrl(const MemCtrlParams &p) :
     writeLowThreshold(writeBufferSize * p.write_low_thresh_perc / 100.0),
     minWritesPerSwitch(p.min_writes_per_switch),
     writesThisTime(0), readsThisTime(0),
-    memSchedPolicy(p.mem_sched_policy),
+    memSchedPolicy(p.mem_sched_policy), bw_ratio(p.bw_ratio),
     frontendLatency(p.static_frontend_latency),
+    frontendLatency_pim(frontendLatency / bw_ratio),
     backendLatency(p.static_backend_latency),
+    backendLatency_pim(backendLatency / bw_ratio),
     commandWindow(p.command_window),
     nextBurstAt(0), prevArrival(0),
     nextReqTime(0),
@@ -105,6 +108,19 @@ MemCtrl::init()
     } else {
         port.sendRangeChange();
     }
+
+    // Get PIM system SimObject
+    if (semodesystem::MemStackNum == 1) {
+        _pimSystem = dynamic_cast<System *>(SimObject::find("pim_system"));
+        fatal_if(!_pimSystem, "MemCtrl : Cannot find SimObject pim_system");
+    } else if (semodesystem::MemStackNum > 1) { /* multistack PIM */
+        for (int i=0; i<semodesystem::MemStackNum; i++) {
+            std::string systemname = semodesystem::SEModeSystemsName[i];            
+            _pimSystems.push_back(dynamic_cast<System *>
+                (SimObject::find(&systemname[0])));
+        }
+        fatal_if((!_pimSystems.size()), "Bridge : Cannot find SimObject pim_system");
+    }
 }
 
 void
@@ -122,6 +138,46 @@ MemCtrl::startup()
                                           nvm->commandOffset());
     }
 }
+bool
+MemCtrl::pktFromPIM(PacketPtr pkt) const
+{
+    // std::string _masterName = _pimSystem->getRequestorName(pkt->requestorId());
+    // return startswith(_masterName, _pimSystem->name()) ? true : false;
+
+    std::string _masterName;
+    if (semodesystem::MemStackNum == 1) {
+        _masterName = _pimSystem->getRequestorName(pkt->requestorId());
+        return startswith(_masterName, _pimSystem->name()) ? true : false;
+    } else if (semodesystem::MemStackNum > 1) {
+        for (int i=0; i<_pimSystems.size(); i++) {
+            _masterName = _pimSystems[i]->getRequestorName(pkt->requestorId());
+            if(startswith(_masterName, _pimSystems[i]->name()))
+                return true;
+        }
+    }
+    return false;
+}
+
+bool
+MemCtrl::MEMPacketFromPIM(MemPacket *mem_pkt) const
+{
+    // std::string _masterName =
+    // _pimSystem->getRequestorName(mem_pkt->requestorId());
+    // std::cout << "masterName: " << _masterName << std::endl;
+    // return startswith(_masterName, _pimSystem->name()) ? true : false;
+    std::string _masterName;
+    if (semodesystem::MemStackNum == 1) {
+        _masterName = _pimSystem->getRequestorName(mem_pkt->requestorId());
+        return startswith(_masterName, _pimSystem->name()) ? true : false;
+    } else if (semodesystem::MemStackNum > 1) {
+        for (int i=0; i<_pimSystems.size(); i++) {
+            _masterName = _pimSystems[i]->getRequestorName(mem_pkt->requestorId());
+            if(startswith(_masterName, _pimSystems[i]->name()))
+                return true;
+        }
+    }
+    return false;
+}
 
 Tick
 MemCtrl::recvAtomic(PacketPtr pkt)
@@ -131,6 +187,8 @@ MemCtrl::recvAtomic(PacketPtr pkt)
 
     panic_if(pkt->cacheResponding(), "Should not see packets where cache "
              "is responding");
+    panic_if(!(pkt->isRead() || pkt->isWrite()),
+             "Should only see read and writes at memory controller %#x %s\n", pkt->getAddr(), pkt->cmdString());
 
     Tick latency = 0;
     // do the actual memory access and turn the packet into a response
@@ -141,6 +199,8 @@ MemCtrl::recvAtomic(PacketPtr pkt)
             // this value is not supposed to be accurate, just enough to
             // keep things going, mimic a closed page
             latency = dram->accessLatency();
+                        if (pktFromPIM(pkt))
+                latency /= bw_ratio;
         }
     } else if (nvm && nvm->getAddrRange().contains(pkt->getAddr())) {
         nvm->access(pkt);
@@ -149,6 +209,8 @@ MemCtrl::recvAtomic(PacketPtr pkt)
             // this value is not supposed to be accurate, just enough to
             // keep things going, mimic a closed page
             latency = nvm->accessLatency();
+                        if (pktFromPIM(pkt))
+                latency /= bw_ratio;
         }
     } else {
         panic("Can't handle address range for packet %s\n",
@@ -296,7 +358,8 @@ MemCtrl::addToReadQueue(PacketPtr pkt, unsigned int pkt_count, bool is_dram)
 
     // If all packets are serviced by write queue, we send the repsonse back
     if (pktsServicedByWrQ == pkt_count) {
-        accessAndRespond(pkt, frontendLatency);
+        accessAndRespond(pkt, pktFromPIM(pkt) ? frontendLatency_pim :
+                         frontendLatency);
         return;
     }
 
@@ -383,7 +446,8 @@ MemCtrl::addToWriteQueue(PacketPtr pkt, unsigned int pkt_count, bool is_dram)
     // snoop the write queue for any upcoming reads
     // @todo, if a pkt size is larger than burst size, we might need a
     // different front end latency
-    accessAndRespond(pkt, frontendLatency);
+    accessAndRespond(pkt, pktFromPIM(pkt) ? frontendLatency_pim :
+                     frontendLatency);
 
     // If we are not already scheduled to get a request out of the
     // queue, do so now
@@ -429,7 +493,7 @@ MemCtrl::recvTimingReq(PacketPtr pkt)
              "is responding");
 
     panic_if(!(pkt->isRead() || pkt->isWrite()),
-             "Should only see read and writes at memory controller\n");
+             "Should only see read and writes at memory controller %#x\n", pkt->getAddr());
 
     // Calc avg gap between requests
     if (prevArrival != 0) {
@@ -521,11 +585,32 @@ MemCtrl::processRespondEvent()
             delete mem_pkt->burstHelper;
             mem_pkt->burstHelper = NULL;
         }
-    } else {
+    }
+
+    // @todo we probably want to have a different front end and back
+    // end latency for split packets
+    if (!mem_pkt->burstHelper) {
+        if (bw_ratio != 1) {
+            if (MEMPacketFromPIM(mem_pkt))
+                assert(mem_pkt->actReadyTime == curTick());
+            else
+                assert(mem_pkt->actReadyTime > curTick());
+        }
+
+        assert(mem_pkt->actReadyTime >= curTick());
+        Tick latency = MEMPacketFromPIM(mem_pkt) ?
+                       frontendLatency_pim + backendLatency_pim :
+                       frontendLatency + backendLatency;
+        latency += (mem_pkt->actReadyTime - curTick()) * bw_ratio;
+        //<< curTick() << ", latency" << latency << std::endl;
+        accessAndRespond(mem_pkt->pkt, latency);
+    }
+    /* default
+    else {
         // it is not a split packet
         accessAndRespond(mem_pkt->pkt, frontendLatency + backendLatency);
     }
-
+    */
     respQueue.pop_front();
 
     if (!respQueue.empty()) {
@@ -656,18 +741,28 @@ MemCtrl::accessAndRespond(PacketPtr pkt, Tick static_latency)
     if (needsResponse) {
         // access already turned the packet into a response
         assert(pkt->isResponse());
+
+        Tick response_latency = static_latency + pkt->headerDelay +
+                                pkt->payloadDelay;
+        if (!pktFromPIM(pkt))
+            response_latency *= bw_ratio;
+
+        if (pktFromPIM(pkt) && (pkt->headerDelay || pkt->payloadDelay))
+            std::cout << this->name() << ": header or payload delay not 0!"
+                <<pkt->headerDelay<<" " << pkt->payloadDelay<< "\n";
+
         // response_time consumes the static latency and is charged also
         // with headerDelay that takes into account the delay provided by
         // the xbar and also the payloadDelay that takes into account the
         // number of data beats.
-        Tick response_time = curTick() + static_latency + pkt->headerDelay +
-                             pkt->payloadDelay;
+        Tick response_time = curTick() + response_latency;
         // Here we reset the timing of the packet before sending it out.
         pkt->headerDelay = pkt->payloadDelay = 0;
 
         // queue the packet in the response queue to be sent out after
         // the static latency has passed
         port.schedTimingResp(pkt, response_time);
+        DPRINTF(MemCtrl, "Response Time %d\n", response_time);
     } else {
         // @todo the packet is going to be deleted, and the MemPacket
         // is still having a pointer to it
@@ -860,7 +955,7 @@ MemCtrl::doBurstAccess(MemPacket* mem_pkt)
         ++readsThisTime;
         // Update latency stats
         stats.requestorReadTotalLat[mem_pkt->requestorId()] +=
-            mem_pkt->readyTime - mem_pkt->entryTime;
+            mem_pkt->actReadyTime - mem_pkt->entryTime;
         stats.requestorReadBytes[mem_pkt->requestorId()] += mem_pkt->size;
     } else {
         ++writesThisTime;
@@ -1024,7 +1119,7 @@ MemCtrl::processNextReqEvent()
             // log the response
             logResponse(MemCtrl::READ, (*to_read)->requestorId(),
                         mem_pkt->qosValue(), mem_pkt->getAddr(), 1,
-                        mem_pkt->readyTime - mem_pkt->entryTime);
+                        mem_pkt->actReadyTime - mem_pkt->entryTime);
 
 
             // Insert into response queue. It will be sent back to the
@@ -1252,7 +1347,8 @@ MemCtrl::CtrlStats::CtrlStats(MemCtrl &_ctrl)
                 statistics::units::Byte, statistics::units::Second>::get(),
              "Average system write bandwidth in Byte/s"),
 
-    ADD_STAT(totGap, statistics::units::Tick::get(), "Total gap between requests"),
+    ADD_STAT(totGap, statistics::units::Tick::get(),
+             "Total gap between requests"),
     ADD_STAT(avgGap, statistics::units::Rate<
                 statistics::units::Tick, statistics::units::Count>::get(),
              "Average gap between requests"),

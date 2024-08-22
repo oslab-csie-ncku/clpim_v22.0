@@ -51,7 +51,7 @@
 #include "cpu/utils.hh"
 #include "params/CheckerCPU.hh"
 #include "sim/full_system.hh"
-
+#include "sim/se_mode_system.hh"
 namespace gem5
 {
 
@@ -100,7 +100,7 @@ CheckerCPU::setSystem(System *system)
 
     systemPtr = system;
 
-    if (FullSystem) {
+    if (FullSystem && !semodesystem::belongSEsys(this)) {
         thread = new SimpleThread(this, 0, systemPtr, mmu, p.isa[0],
                                   p.decoder[0]);
     } else {
@@ -210,6 +210,7 @@ CheckerCPU::readMem(Addr addr, uint8_t *data, unsigned size,
 
             if (!(mem_req->isUncacheable() || mem_req->isLocalAccess())) {
                 // Access memory to see if we have the same data
+                std::cout << "in dcache.cc" << std::endl;
                 dcachePort->sendFunctional(pkt);
             } else {
                 // Assume the data is correct if it's an uncached access

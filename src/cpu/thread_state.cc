@@ -37,7 +37,7 @@
 #include "sim/full_system.hh"
 #include "sim/serialize.hh"
 #include "sim/system.hh"
-
+#include "sim/se_mode_system.hh"
 namespace gem5
 {
 

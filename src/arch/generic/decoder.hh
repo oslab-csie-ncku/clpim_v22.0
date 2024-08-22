@@ -48,7 +48,8 @@ class InstDecoder : public SimObject
 
     bool instDone = false;
     bool outOfBytes = true;
-
+  public:
+    virtual void setFullSystemVal(const uint32_t val) = 0; // 纯虚函数声明
   public:
     template <typename MoreBytesType>
     InstDecoder(const InstDecoderParams &params, MoreBytesType *mb_buf) :

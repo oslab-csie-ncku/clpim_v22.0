@@ -61,7 +61,7 @@
 #include "sim/serialize.hh"
 #include "sim/sim_exit.hh"
 #include "sim/system.hh"
-
+#include "sim/se_mode_system.hh"
 namespace gem5
 {
 
@@ -79,18 +79,29 @@ SimpleThread::SimpleThread(BaseCPU *_cpu, int _thread_num, System *_sys,
           {_isa->regClasses().at(CCRegClass)}
       }},
       isa(dynamic_cast<TheISA::ISA *>(_isa)),
-      predicate(true), memAccPredicate(true),
+      predicate(false), memAccPredicate(true),
       comInstEventQueue("instruction-based event queue"),
       system(_sys), mmu(_mmu), decoder(_decoder),
       htmTransactionStarts(0), htmTransactionStops(0)
 {
+// #if TheISA == X86ISA
+    uint32_t _FSVal = (FullSystem && !semodesystem::belongSEsys(system)) ?
+                      FullSystemInt : 0;
+    decoder->setFullSystemVal(_FSVal);
+// #endif
     clearArchRegs();
 }
 
 SimpleThread::SimpleThread(BaseCPU *_cpu, int _thread_num, System *_sys,
                            BaseMMU *_mmu, BaseISA *_isa, InstDecoder *_decoder)
     : SimpleThread(_cpu, _thread_num, _sys, nullptr, _mmu, _isa, _decoder)
-{}
+{
+// #if TheISA == X86ISA
+    uint32_t _FSVal = (FullSystem && !semodesystem::belongSEsys(system)) ?
+                      FullSystemInt : 0;
+    decoder->setFullSystemVal(_FSVal);
+// #endif
+}
 
 void
 SimpleThread::takeOverFrom(ThreadContext *oldContext)

@@ -63,7 +63,7 @@
 #include "sim/probe/pmu.hh"
 #include "sim/probe/probe.hh"
 #include "sim/system.hh"
-
+#include "sim/se_mode_system.hh"
 namespace gem5
 {
 
@@ -256,7 +256,9 @@ class BaseCPU : public ClockedObject
     bool
     checkInterrupts(ThreadID tid) const
     {
-        return FullSystem && interrupts[tid]->checkInterrupts();
+        // return FullSystem && interrupts[tid]->checkInterrupts();
+        return FullSystem && !semodesystem::belongSEsys(this) &&
+               interrupts[tid]->checkInterrupts();
     }
 
   protected:

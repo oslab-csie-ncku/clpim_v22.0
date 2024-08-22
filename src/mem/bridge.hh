@@ -56,7 +56,11 @@
 
 namespace gem5
 {
-
+class System;
+namespace memory
+{
+class ScratchpadMemory;
+}
 /**
  * A bridge is used to interface two different crossbars (or in general a
  * memory-mapped requestor and responder), with buffering for requests and
@@ -133,7 +137,7 @@ class Bridge : public ClockedObject
         bool retryReq;
 
         /** Max queue size for reserved responses. */
-        unsigned int respQueueLimit;
+       const  unsigned int respQueueLimit;
 
         /**
          * Upstream caches need this packet until true is returned, so
@@ -173,7 +177,7 @@ class Bridge : public ClockedObject
          */
         BridgeResponsePort(const std::string& _name, Bridge& _bridge,
                         BridgeRequestPort& _memSidePort, Cycles _delay,
-                        int _resp_limit, std::vector<AddrRange> _ranges);
+                        unsigned int _resp_limit, std::vector<AddrRange> _ranges);
 
         /**
          * Queue a response packet to be sent out later and also schedule
@@ -271,7 +275,7 @@ class Bridge : public ClockedObject
          */
         BridgeRequestPort(const std::string& _name, Bridge& _bridge,
                          BridgeResponsePort& _cpuSidePort, Cycles _delay,
-                         int _req_limit);
+                         unsigned int _req_limit);
 
         /**
          * Is this side blocked from accepting new request packets.
@@ -316,6 +320,16 @@ class Bridge : public ClockedObject
     /** Request port of the bridge. */
     BridgeRequestPort memSidePort;
 
+  private:
+    const bool ideal;
+    System *_pimSystem;
+    memory::ScratchpadMemory *pimSpm;
+    /* multistack PIM */
+    std::vector <memory::ScratchpadMemory *> pimSpms;
+    std::vector <System *> _pimSystems;
+    bool pktFromPIM(PacketPtr pkt) const;
+    bool pktToPimSpm(PacketPtr pkt) const;
+    
   public:
 
     Port &getPort(const std::string &if_name,

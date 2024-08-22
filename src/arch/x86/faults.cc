@@ -50,7 +50,7 @@
 #include "debug/Faults.hh"
 #include "sim/full_system.hh"
 #include "sim/process.hh"
-
+#include "sim/se_mode_system.hh"
 namespace gem5
 {
 
@@ -60,7 +60,7 @@ namespace X86ISA
 void
 X86FaultBase::invoke(ThreadContext *tc, const StaticInstPtr &inst)
 {
-    if (!FullSystem) {
+    if (!FullSystem || semodesystem::belongSEsys(tc)) {
         FaultBase::invoke(tc, inst);
         return;
     }
@@ -112,6 +112,8 @@ X86Trap::invoke(ThreadContext *tc, const StaticInstPtr &inst)
     // This is the same as a fault, but it happens -after- the
     // instruction.
     X86FaultBase::invoke(tc);
+    if (!FullSystem || semodesystem::belongSEsys(tc))
+        return;
 }
 
 void
@@ -123,7 +125,7 @@ X86Abort::invoke(ThreadContext *tc, const StaticInstPtr &inst)
 void
 InvalidOpcode::invoke(ThreadContext *tc, const StaticInstPtr &inst)
 {
-    if (FullSystem) {
+    if (FullSystem && !semodesystem::belongSEsys(tc)) {
         X86Fault::invoke(tc, inst);
     } else {
         auto *xsi = static_cast<X86StaticInst *>(inst.get());
@@ -135,7 +137,7 @@ InvalidOpcode::invoke(ThreadContext *tc, const StaticInstPtr &inst)
 void
 PageFault::invoke(ThreadContext *tc, const StaticInstPtr &inst)
 {
-    if (FullSystem) {
+    if (FullSystem && !semodesystem::belongSEsys(tc)) {
         // Invalidate any matching TLB entries before handling the page fault.
         tc->getMMUPtr()->demapPage(addr, 0);
         HandyM5Reg m5reg = tc->readMiscRegNoEffect(MISCREG_M5_REG);

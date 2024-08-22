@@ -61,7 +61,7 @@
 #include "sim/process.hh"
 #include "sim/stat_control.hh"
 #include "sim/system.hh"
-
+#include "sim/se_mode_system.hh"
 namespace gem5
 {
 
@@ -117,10 +117,12 @@ CPU::CPU(const BaseO3CPUParams &params)
       lastRunningCycle(curCycle()),
       cpuStats(this)
 {
-    fatal_if(FullSystem && params.numThreads > 1,
+    fatal_if(FullSystem && !semodesystem::belongSEsys(this) && 
+             params.numThreads > 1,
             "SMT is not supported in O3 in full system mode currently.");
 
-    fatal_if(!FullSystem && params.numThreads < params.workload.size(),
+    fatal_if((!FullSystem || semodesystem::belongSEsys(this)) && 
+             params.numThreads < params.workload.size(),
             "More workload items (%d) than threads (%d) on CPU %s.",
             params.workload.size(), params.numThreads, name());
 
@@ -139,7 +141,7 @@ CPU::CPU(const BaseO3CPUParams &params)
         checker = NULL;
     }
 
-    if (!FullSystem) {
+    if (!FullSystem || semodesystem::belongSEsys(this)) {
         thread.resize(numThreads);
         tids.resize(numThreads);
     }
@@ -179,7 +181,7 @@ CPU::CPU(const BaseO3CPUParams &params)
     rename.setCommitStage(&commit);
 
     ThreadID active_threads;
-    if (FullSystem) {
+    if (FullSystem && !semodesystem::belongSEsys(this)) {
         active_threads = 1;
     } else {
         active_threads = params.workload.size();
@@ -254,7 +256,7 @@ CPU::CPU(const BaseO3CPUParams &params)
     thread.resize(numThreads);
 
     for (ThreadID tid = 0; tid < numThreads; ++tid) {
-        if (FullSystem) {
+        if (FullSystem && !semodesystem::belongSEsys(this)) {
             // SMT is not supported in FS mode yet.
             assert(numThreads == 1);
             thread[tid] = new ThreadState(this, 0, NULL);
@@ -498,7 +500,7 @@ CPU::tick()
         }
     }
 
-    if (!FullSystem)
+    if (!FullSystem || semodesystem::belongSEsys(this))
         updateThreadPriority();
 
     tryDrain();
@@ -685,7 +687,7 @@ CPU::insertThread(ThreadID tid)
     // Will change now that the PC and thread state is internal to the CPU
     // and not in the ThreadContext.
     gem5::ThreadContext *src_tc;
-    if (FullSystem)
+    if (FullSystem && !semodesystem::belongSEsys(this))
         src_tc = system->threads[tid];
     else
         src_tc = tcBase(tid);

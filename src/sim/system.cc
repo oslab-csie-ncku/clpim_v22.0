@@ -64,11 +64,12 @@
 #include "sim/debug.hh"
 #include "sim/redirect_path.hh"
 #include "sim/serialize_handlers.hh"
-
+#include "sim/se_mode_system.hh"
 namespace gem5
 {
 
-std::vector<System *> System::systemList;
+    std::vector<RequestorInfo> System::requestors;
+    std::vector<System *> System::systemList;
 
 void
 System::Threads::Thread::resume()
@@ -434,11 +435,25 @@ printSystems()
 std::string
 System::stripSystemName(const std::string& requestor_name) const
 {
-    if (startswith(requestor_name, name())) {
-        return requestor_name.substr(name().size() + 1);
-    } else {
-        return requestor_name;
-    }
+        std::string _name;
+        // std::cout << "requestor_name: " << requestor_name << "<" << std::endl;
+        if (startswith(requestor_name, name()))
+        {
+            _name = requestor_name.substr(name().size());
+            //_name = requestor_name.substr(name().size());
+        }
+        else
+        {
+            _name = requestor_name;
+        }
+
+        // std::cout << "_name: " << _name << "<" << std::endl;
+        if (_name != ".writebacks" && _name != ".functional" &&
+            _name != ".interrupt")
+            _name = requestor_name;
+        // std::cout << "return _name:" << _name << "<" << std::endl;
+        return _name;
+    
 }
 
 RequestorID

@@ -509,6 +509,10 @@ AtomicSimpleCPU::writeMem(uint8_t *data, unsigned size, Addr addr,
                     threadSnoop(&pkt, curThread);
                 }
                 dcache_access = true;
+                if (pkt.isError()) {
+                    printf("fatal error: pkt is error. Addr = %lu", pkt.getAddr());
+                    assert(!pkt.isError());
+                }
                 panic_if(pkt.isError(), "Data write (%s) failed: %s",
                         pkt.getAddrRange().to_string(), pkt.print());
                 if (req->isSwap()) {

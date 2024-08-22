@@ -51,7 +51,7 @@
 #include "debug/O3PipeView.hh"
 #include "params/BaseO3CPU.hh"
 #include "sim/full_system.hh"
-
+#include "sim/se_mode_system.hh"
 // clang complains about std::set being overloaded with Packet::set if
 // we open up the entire namespace std
 using std::list;
@@ -345,7 +345,7 @@ Decode::squash(ThreadID tid)
 
     if (decodeStatus[tid] == Blocked ||
         decodeStatus[tid] == Unblocking) {
-        if (FullSystem) {
+        if (FullSystem && !semodesystem::belongSEsys(cpu)) {
             toFetch->decodeUnblock[tid] = 1;
         } else {
             // In syscall emulation, we can have both a block and a squash due

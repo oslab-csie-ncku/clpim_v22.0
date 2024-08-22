@@ -40,7 +40,7 @@
 #include <cassert>
 
 #include "arch/generic/decoder.hh"
-
+#include "sim/se_mode_system.hh"
 namespace gem5
 {
 
@@ -49,8 +49,8 @@ NonCachingSimpleCPU::NonCachingSimpleCPU(
     : AtomicSimpleCPU(p)
 {
     assert(p.numThreads == 1);
-    fatal_if(!FullSystem && p.workload.size() != 1,
-             "only one workload allowed");
+    fatal_if((!FullSystem || semodesystem::belongSEsys(this)) && 
+             p.workload.size() != 1, "only one workload allowed");
 }
 
 void

@@ -50,17 +50,20 @@
 #include "debug/AddrRanges.hh"
 #include "debug/Drain.hh"
 #include "debug/XBar.hh"
-
+#include "mem/scratchpad_mem.hh"
+#include "sim/se_mode_system.hh"
+#include "sim/system.hh"
 namespace gem5
 {
 
 BaseXBar::BaseXBar(const BaseXBarParams &p)
     : ClockedObject(p),
-      frontendLatency(p.frontend_latency),
-      forwardLatency(p.forward_latency),
-      responseLatency(p.response_latency),
-      headerLatency(p.header_latency),
-      width(p.width),
+      ideal(p.ideal),
+      frontendLatency(ideal ? 0 : p.frontend_latency),
+      forwardLatency(ideal ? 0 : p.forward_latency),
+      responseLatency(ideal ? 0 : p.response_latency),
+      headerLatency(ideal ? 0 : p.header_latency),
+      width(ideal ? (uint32_t)-1 : p.width),
       gotAddrRanges(p.port_default_connection_count +
                           p.port_mem_side_ports_connection_count, false),
       gotAllAddrRanges(false), defaultPortID(InvalidPortID),
@@ -83,6 +86,34 @@ BaseXBar::~BaseXBar()
     for (auto port: cpuSidePorts)
         delete port;
 }
+void
+BaseXBar::init()
+{
+
+    if (semodesystem::MemStackNum == 1) {
+        // Get PIM system SimObject
+        _pimSystem = dynamic_cast<System *>(SimObject::find("pim_system"));
+        fatal_if(!_pimSystem, "Xbar : Cannot find SimObject pim_system");
+
+        // Get PIM SPM
+        pimSpm = dynamic_cast<memory::ScratchpadMemory *>
+                (SimObject::find("pim_system.spm"));
+        fatal_if(!pimSpm, "Xbar : Cannot find SimObject pim_system.spm");
+    } else if (semodesystem::MemStackNum > 1) { /* multistack PIM */        
+        for (int i=0; i<semodesystem::MemStackNum; i++) {
+            std::string systemname = semodesystem::SEModeSystemsName[i];
+            // Get PIM system SimObject          
+            _pimSystems.push_back(dynamic_cast<System *>
+                (SimObject::find(&systemname[0])));
+            // Get PIM SPM
+            pimSpms.push_back(dynamic_cast<memory::ScratchpadMemory *>
+                (SimObject::find(strcat(&systemname[0], ".spm"))));
+        }
+        fatal_if((!pimSpms.size()), "Xbar : Cannot find SimObject pim_system spm");
+        fatal_if((!_pimSystems.size()), "Bridge : Cannot find SimObject pim_system");
+    }
+}
+
 
 Port &
 BaseXBar::getPort(const std::string &if_name, PortID idx)
@@ -99,6 +130,43 @@ BaseXBar::getPort(const std::string &if_name, PortID idx)
     } else {
         return ClockedObject::getPort(if_name, idx);
     }
+}
+bool
+BaseXBar::pktFromPIM(PacketPtr pkt) const
+{
+    // std::string _masterName = _pimSystem->getRequestorName(pkt->requestorId());
+    // return startswith(_masterName, _pimSystem->name()) ? true : false;
+    std::string _masterName;
+    if (semodesystem::MemStackNum == 1) {
+        _masterName = _pimSystem->getRequestorName(pkt->requestorId());
+        return startswith(_masterName, _pimSystem->name()) ? true : false;
+    } else if (semodesystem::MemStackNum > 1) {
+        for (int i=0; i<_pimSystems.size(); i++) {
+            _masterName = _pimSystems[i]->getRequestorName(pkt->requestorId());
+            if(startswith(_masterName, _pimSystems[i]->name()))
+                return true;
+        }
+    }
+    return false;
+}
+
+bool
+BaseXBar::pktToPimSpm(PacketPtr pkt) const
+{
+    // if (pkt->getAddrRange().isSubset(pimSpm->getAddrRange()))
+    //     return true;
+    // else
+    //     return false;
+    if (semodesystem::MemStackNum == 1) {
+        if (pkt->getAddrRange().isSubset(pimSpm->getAddrRange()))
+            return true;
+    } else if (semodesystem::MemStackNum > 1) {
+        for (int i=0; i<pimSpms.size(); i++) {
+            if (pkt->getAddrRange().isSubset(pimSpms[i]->getAddrRange()))
+                return true;
+        }
+    }
+    return false;
 }
 
 void
@@ -132,7 +200,8 @@ BaseXBar::calcPacketTiming(PacketPtr pkt, Tick header_delay)
                                            divCeil(pkt->getSize(), width) *
                                            clockPeriod());
     }
-
+    if (ideal || pktToPimSpm(pkt) || pktFromPIM(pkt))
+        pkt->headerDelay = pkt->payloadDelay = 0;
     // the payload delay is not paying for the clock offset as that is
     // already done using the header delay, and the payload delay is
     // also used to determine how long the crossbar layer is busy and
@@ -298,7 +367,11 @@ BaseXBar::Layer<SrcType, DstType>::retryWaiting()
         state = BUSY;
 
         // occupy the crossbar layer until the next clock edge
-        occupyLayer(xbar.clockEdge());
+        // to avoid sudden crash for booting period
+        if (!curTick())
+            occupyLayer(xbar.ideal ? 1 : xbar.clockEdge());
+        else
+            occupyLayer(xbar.ideal ? curTick() : xbar.clockEdge());
     }
 }
 

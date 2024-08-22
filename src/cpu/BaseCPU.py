@@ -161,6 +161,22 @@ class BaseCPU(ClockedObject):
         for p in self._uncached_interrupt_request_ports:
             exec('self.%s = in_ports' % p)
 
+    def connectCachedPortsOLD(self, bus):
+        for p in self._cached_ports:
+            exec('self.%s = bus.cpu_side_ports' % p)
+
+    def connectUncachedPortsOLD(self, bus):
+        for p in self._uncached_interrupt_response_ports:
+            exec('self.%s = bus.mem_side_ports' % p)
+        for p in self._uncached_interrupt_request_ports:
+            exec('self.%s = bus.cpu_side_ports' % p)
+
+    def connectAllPortsOLD(self, cached_bus, uncached_bus = None):
+        self.connectCachedPortsOLD(cached_bus)
+        if not uncached_bus:
+            uncached_bus = cached_bus
+        self.connectUncachedPortsOLD(uncached_bus)
+
     def connectAllPorts(self, cached_in, uncached_in, uncached_out):
         self.connectCachedPorts(cached_in)
         self.connectUncachedPorts(uncached_in, uncached_out)

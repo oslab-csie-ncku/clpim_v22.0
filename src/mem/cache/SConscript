@@ -40,7 +40,7 @@ Source('mshr_queue.cc')
 Source('noncoherent_cache.cc')
 Source('write_queue.cc')
 Source('write_queue_entry.cc')
-
+DebugFlag('CacheFlushRange')
 DebugFlag('Cache')
 DebugFlag('CacheComp')
 DebugFlag('CachePort')
