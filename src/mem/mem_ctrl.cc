@@ -138,6 +138,7 @@ MemCtrl::startup()
                                           nvm->commandOffset());
     }
 }
+
 bool
 MemCtrl::pktFromPIM(PacketPtr pkt) const
 {
@@ -187,6 +188,7 @@ MemCtrl::recvAtomic(PacketPtr pkt)
 
     panic_if(pkt->cacheResponding(), "Should not see packets where cache "
              "is responding");
+
     panic_if(!(pkt->isRead() || pkt->isWrite()),
              "Should only see read and writes at memory controller %#x %s\n", pkt->getAddr(), pkt->cmdString());
 
@@ -199,7 +201,7 @@ MemCtrl::recvAtomic(PacketPtr pkt)
             // this value is not supposed to be accurate, just enough to
             // keep things going, mimic a closed page
             latency = dram->accessLatency();
-                        if (pktFromPIM(pkt))
+            if (pktFromPIM(pkt))
                 latency /= bw_ratio;
         }
     } else if (nvm && nvm->getAddrRange().contains(pkt->getAddr())) {
@@ -209,7 +211,7 @@ MemCtrl::recvAtomic(PacketPtr pkt)
             // this value is not supposed to be accurate, just enough to
             // keep things going, mimic a closed page
             latency = nvm->accessLatency();
-                        if (pktFromPIM(pkt))
+            if (pktFromPIM(pkt))
                 latency /= bw_ratio;
         }
     } else {
@@ -579,9 +581,6 @@ MemCtrl::processRespondEvent()
             mem_pkt->burstHelper->burstCount) {
             // we have now serviced all children packets of a system packet
             // so we can now respond to the requestor
-            // @todo we probably want to have a different front end and back
-            // end latency for split packets
-            accessAndRespond(mem_pkt->pkt, frontendLatency + backendLatency);
             delete mem_pkt->burstHelper;
             mem_pkt->burstHelper = NULL;
         }
@@ -590,18 +589,18 @@ MemCtrl::processRespondEvent()
     // @todo we probably want to have a different front end and back
     // end latency for split packets
     if (!mem_pkt->burstHelper) {
-        if (bw_ratio != 1) {
-            if (MEMPacketFromPIM(mem_pkt))
-                assert(mem_pkt->actReadyTime == curTick());
-            else
-                assert(mem_pkt->actReadyTime > curTick());
-        }
+        // if (bw_ratio != 1) {
+        //     if (MEMPacketFromPIM(mem_pkt))
+        //         assert(mem_pkt->actReadyTime == curTick());
+        //     else
+        //         assert(mem_pkt->actReadyTime > curTick());
+        // }
 
-        assert(mem_pkt->actReadyTime >= curTick());
+        // assert(mem_pkt->actReadyTime >= curTick());
         Tick latency = MEMPacketFromPIM(mem_pkt) ?
                        frontendLatency_pim + backendLatency_pim :
                        frontendLatency + backendLatency;
-        latency += (mem_pkt->actReadyTime - curTick()) * bw_ratio;
+        // latency += (mem_pkt->actReadyTime - curTick()) * bw_ratio;
         //<< curTick() << ", latency" << latency << std::endl;
         accessAndRespond(mem_pkt->pkt, latency);
     }
@@ -611,6 +610,7 @@ MemCtrl::processRespondEvent()
         accessAndRespond(mem_pkt->pkt, frontendLatency + backendLatency);
     }
     */
+
     respQueue.pop_front();
 
     if (!respQueue.empty()) {
@@ -744,8 +744,9 @@ MemCtrl::accessAndRespond(PacketPtr pkt, Tick static_latency)
 
         Tick response_latency = static_latency + pkt->headerDelay +
                                 pkt->payloadDelay;
-        if (!pktFromPIM(pkt))
-            response_latency *= bw_ratio;
+        // if (!pktFromPIM(pkt))
+        //     response_latency = static_latency + (pkt->headerDelay +
+        //                         pkt->payloadDelay)*bw_ratio;
 
         if (pktFromPIM(pkt) && (pkt->headerDelay || pkt->payloadDelay))
             std::cout << this->name() << ": header or payload delay not 0!"
@@ -756,6 +757,7 @@ MemCtrl::accessAndRespond(PacketPtr pkt, Tick static_latency)
         // the xbar and also the payloadDelay that takes into account the
         // number of data beats.
         Tick response_time = curTick() + response_latency;
+
         // Here we reset the timing of the packet before sending it out.
         pkt->headerDelay = pkt->payloadDelay = 0;
 
@@ -955,13 +957,15 @@ MemCtrl::doBurstAccess(MemPacket* mem_pkt)
         ++readsThisTime;
         // Update latency stats
         stats.requestorReadTotalLat[mem_pkt->requestorId()] +=
-            mem_pkt->actReadyTime - mem_pkt->entryTime;
+            // mem_pkt->actReadyTime - mem_pkt->entryTime;
+            mem_pkt->readyTime - mem_pkt->entryTime;
         stats.requestorReadBytes[mem_pkt->requestorId()] += mem_pkt->size;
     } else {
         ++writesThisTime;
         stats.requestorWriteBytes[mem_pkt->requestorId()] += mem_pkt->size;
         stats.requestorWriteTotalLat[mem_pkt->requestorId()] +=
             mem_pkt->readyTime - mem_pkt->entryTime;
+         // mem_pkt->actReadyTime - mem_pkt->entryTime; PHSIM use mem_pkt->readyTime, not actReadyTime
     }
 }
 
@@ -1117,10 +1121,12 @@ MemCtrl::processNextReqEvent()
             assert(mem_pkt->readyTime >= curTick());
 
             // log the response
+            // logResponse(MemCtrl::READ, (*to_read)->requestorId(),
+            //             mem_pkt->qosValue(), mem_pkt->getAddr(), 1,
+            //             mem_pkt->actReadyTime - mem_pkt->entryTime);
             logResponse(MemCtrl::READ, (*to_read)->requestorId(),
                         mem_pkt->qosValue(), mem_pkt->getAddr(), 1,
-                        mem_pkt->actReadyTime - mem_pkt->entryTime);
-
+                        mem_pkt->readyTime - mem_pkt->entryTime);
 
             // Insert into response queue. It will be sent back to the
             // requestor at its readyTime

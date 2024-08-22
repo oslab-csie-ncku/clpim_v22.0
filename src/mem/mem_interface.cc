@@ -37,7 +37,6 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 #include "mem/mem_interface.hh"
 
 #include "base/bitfield.hh"
@@ -46,8 +45,8 @@
 #include "debug/DRAM.hh"
 #include "debug/DRAMPower.hh"
 #include "debug/DRAMState.hh"
-#include "sim/se_mode_system.hh"
 #include "debug/NVM.hh"
+#include "sim/se_mode_system.hh"
 #include "sim/system.hh"
 
 namespace gem5
@@ -466,6 +465,7 @@ DRAMInterface::prechargeBank(Rank& rank_ref, Bank& bank, Tick pre_tick,
         reschedule(rank_ref.prechargeEvent, pre_done_at);
     }
 }
+
 bool
 DRAMInterface::MEMPacketFromPIM(MemPacket *mem_pkt) const
 {
@@ -568,10 +568,11 @@ DRAMInterface::doBurstAccess(MemPacket* mem_pkt, Tick next_burst_at,
     // update the packet ready time
     mem_pkt->readyTime = cmd_at + tCL_pim + tBURST_pim;
 
-    mem_pkt->actReadyTime = MEMPacketFromPIM(mem_pkt) ? mem_pkt->readyTime
-                            : (mem_pkt->readyTime - curTick()) * mem_bw_ratio +
-                            curTick();
-
+    // mem_pkt->actReadyTime = MEMPacketFromPIM(mem_pkt) ? mem_pkt->readyTime
+    //                         : (mem_pkt->readyTime - curTick()) * mem_bw_ratio +
+    //                         curTick();
+    mem_pkt->readyTime = MEMPacketFromPIM(mem_pkt) ? mem_pkt->readyTime
+                            : cmd_at + tCL + tBURST;
     // I don't agree this, so I comment it out
     //if (mem_pkt->isWrite())
     //    mem_pkt->readyTime += tWP_pim;
@@ -634,7 +635,6 @@ DRAMInterface::doBurstAccess(MemPacket* mem_pkt, Tick next_burst_at,
     bank_ref.preAllowedAt = std::max(bank_ref.preAllowedAt,
                                  mem_pkt->isRead() ? cmd_at + tRTP_pim :
                                  mem_pkt->readyTime + tWR_pim);
-
 
     // increment the bytes accessed and the accesses per row
     bank_ref.bytesAccessed += burstSize;
@@ -729,7 +729,8 @@ DRAMInterface::doBurstAccess(MemPacket* mem_pkt, Tick next_burst_at,
         stats.perBankRdBursts[mem_pkt->bankId]++;
 
         // Update latency stats
-        stats.totMemAccLat += mem_pkt->actReadyTime - mem_pkt->entryTime;
+        // stats.totMemAccLat += mem_pkt->actReadyTime - mem_pkt->entryTime;
+        stats.totMemAccLat += mem_pkt->readyTime - mem_pkt->entryTime;
         stats.totQLat += cmd_at - mem_pkt->entryTime;
         stats.totBusLat += tBURST_pim;
     } else {
@@ -1403,6 +1404,7 @@ DRAMInterface::Rank::processRefreshEvent()
 {
     if (dram.is_nvm)
         return;
+
     // when first preparing the refresh, remember when it was due
     if ((refreshState == REF_IDLE) || (refreshState == REF_SREF_EXIT)) {
         // remember when the refresh is due
@@ -2002,12 +2004,10 @@ DRAMInterface::DRAMStats::DRAMStats(DRAMInterface &_dram)
 
     ADD_STAT(bytesPerActivate, statistics::units::Byte::get(),
              "Bytes accessed per row activation"),
-
     ADD_STAT(bytesRead, statistics::units::Byte::get(),
-            "Total bytes read"),
+             "Total number of bytes read from DRAM"),
     ADD_STAT(bytesWritten, statistics::units::Byte::get(),
-            "Total bytes written"),
-
+            "Total number of bytes written to DRAM"),
     ADD_STAT(avgRdBW, statistics::units::Rate<
                 statistics::units::Byte, statistics::units::Second>::get(),
              "Average DRAM read bandwidth in MiBytes/s"),
@@ -2660,6 +2660,10 @@ NVMInterface::NVMStats::NVMStats(NVMInterface &_nvm)
                 statistics::units::Tick, statistics::units::Count>::get(),
              "Average memory access latency per NVM burst"),
 
+    ADD_STAT(bytesRead, statistics::units::Byte::get(),
+             "Total number of bytes read from NVM"),
+    ADD_STAT(bytesWritten, statistics::units::Byte::get(),
+             "Total number of bytes written to NVM"),
     ADD_STAT(avgRdBW, statistics::units::Rate<
                 statistics::units::Byte, statistics::units::Second>::get(),
              "Average DRAM read bandwidth in MiBytes/s"),
