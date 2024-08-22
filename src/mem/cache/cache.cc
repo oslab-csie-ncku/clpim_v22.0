@@ -1502,7 +1502,7 @@ Cache::flushCacheRange(const Addr addr, const uint32_t size)
             DPRINTF(CacheFlushRange, "flushing block (%s | isSecure: %c)\n",
                                      blk->print(),
                                      blk->isSecure() ? 'Y' : 'N');
-            evictBlock(blk);
+            // evictBlock(blk);
             RequestPtr req = std::make_shared<Request>(addr_blkAlign,
                                                        blkSize, 0,
                                                        Request::wbRequestorId);
