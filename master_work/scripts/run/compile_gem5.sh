@@ -9,7 +9,7 @@
 # 2021/11/26    johnnycck   First release
 
 COMPILE_OPTIONS='--gold-linker --colors'
-COMPILE_JOBS=$((`nproc`+1))
+COMPILE_JOBS=$(( $(nproc) +1))
 GLOBAL_BUILD_VARIABLES=""
 
 function compile_gem5()
