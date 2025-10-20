@@ -130,97 +130,12 @@ void kernel_nova_file_r(volatile uint8_t cmd_index)
      uint64_t src_addr = REG_0(cmd_index);
     uint64_t dst_addr = REG_1(cmd_index);
     uint64_t size = REG_2(cmd_index);
-    uint64_t copysize;
-   
-      if(size>=4096-(dst_addr%4096)){
-        copysize=4096-(dst_addr%4096);
-    }else{
-        copysize=size;
-    }
-    global_src=src_addr+copysize;
-    global_dst=dst_addr+copysize;
-     global_total_size=size-copysize;
 
-
-    clflush(dst_addr,copysize);
-    memcpy_v((void *)dst_addr, (void *)src_addr, copysize);
+    clflush(dst_addr,size);
+    memcpy_v((void *)dst_addr, (void *)src_addr, size);
 }
 
-void kernel_nova_file_r_ext(volatile uint8_t cmd_index)
-{
 
-     uint64_t dst_addr = REG_0(cmd_index);
-    uint64_t dst_addr1 = REG_1(cmd_index);
-    uint64_t dst_addr2 = REG_2(cmd_index);
-    uint64_t dst_addr3 = REG_3(cmd_index);
-    uint64_t copysize;
-    int buffer_counter=0;
-   
-    while(1){
-        if(global_total_size>=4096-(global_dst%4096)){
-            copysize=4096-(global_dst%4096);
-        }else{
-            copysize=global_total_size;
-        }
-        
-            switch (buffer_counter)
-            {
-            case 0:
-                global_dst=dst_addr;
-                clflush(global_dst,copysize);
-                    memcpy_v((void *)global_dst, (void *)global_src, copysize);
-                    global_src+=copysize;
-                    global_dst+=copysize;
-                    global_total_size-=copysize;
-                    if(global_dst%4096==0){ 
-                        buffer_counter=1;
-                }
-                break;
-            case 1:
-                    global_dst=dst_addr1;
-                    clflush(global_dst,copysize);
-                    memcpy_v((void *)global_dst, (void *)global_src, copysize);
-                    global_src+=copysize;
-                    global_dst+=copysize;
-                    global_total_size-=copysize;
-                if(global_dst%4096==0){ 
-                        buffer_counter=2;
-                }
-                break;
-            case 2:
-                    global_dst=dst_addr2;
-                    clflush(global_dst,copysize);
-                    memcpy_v((void *)global_dst, (void *)global_src, copysize);
-                    global_src+=copysize;
-                    global_dst+=copysize;
-                    global_total_size-=copysize;
-                if(global_dst%4096==0){ 
-                        buffer_counter=3;
-                }
-                break;
-            case 3:
-                    global_dst=dst_addr3;
-                    clflush(global_dst,copysize);
-                    memcpy_v((void *)global_dst, (void *)global_src, copysize);
-                    global_src+=copysize;
-                    global_dst+=copysize;
-                    global_total_size-=copysize;
-                if(global_dst%4096==0){ 
-                        buffer_counter=4;
-                }
-                break;
-            default:
-                break;
-            }
-            if(buffer_counter==4){
-                break;
-            }
-            if(global_total_size==0){
-                break;
-            }
-    }
-    
-}
 void kernel_nova_file_w(volatile uint8_t cmd_index)
 {
     uint64_t src_addr = REG_0(cmd_index);
@@ -231,49 +146,15 @@ void kernel_nova_file_w(volatile uint8_t cmd_index)
     memcpy_v((void *)dst_addr, (void *)src_addr, size);
 }
 
-void kernel_nova_file_w_ext(volatile uint8_t cmd_index)
-{
-    pgdval_t pgdval =  REG_0(cmd_index);
-    uint64_t dst_phys_addr =  REG_1(cmd_index);
-    uint64_t src_virt_addr =  REG_2(cmd_index);
-    uint64_t size =  REG_3(cmd_index);
-    // uint64_t round_size = REG_3;
-    // uint64_t src_phys_addr =REG_2;
-    // print("size %lu",size);
-    
-    while (size) {
-        uint16_t round_max = PAGE_SIZE - (src_virt_addr & ~PAGE_MASK);
-        uint16_t round_size;
-        uint64_t src_phys_addr = user_virt_to_phys(pgdval, src_virt_addr,
-                                                   clflush);
-
-        if (size <= round_max)
-            round_size = size;
-        else
-            round_size = round_max;
-        size -= round_size;
-
-        clflush(src_phys_addr, round_size);
-        memcpy_v((void *)dst_phys_addr, (void *)src_phys_addr, round_size);
-
-        dst_phys_addr += round_size;
-        src_virt_addr += round_size;
-    }
-}
 int pim_start()
 {
     init_reg();
     volatile uint8_t cmd_index = 0;
     // Waiting for initialization info from OS
     while (REG_FIRST_CMD == COMMAND_UNINIT);
-    // uint64_t cur_subjob_count=1;
-    // uint64_t subjob_NUM=1;
-    // Start working
     while (1) {
         const uint8_t cmd = REG_CMD(cmd_index);
-
-        if (cmd >= COMMAND_NOVA_SEARCH_RBTREE && cmd <= COMMAND_NOVA_FILE_EXT) {
-            REG_FIRST_CMD =cmd_index;
+        if (cmd >= COMMAND_NOVA_SEARCH_RBTREE && cmd <= COMMAND_NOVA_FILE_W) {
             switch (cmd) {
             case COMMAND_NOVA_SEARCH_RBTREE:
                 kernel_nova_search_rbtree(cmd_index);
@@ -296,37 +177,19 @@ int pim_start()
                   kernel_nova_file_r(cmd_index);
                   REG_CMD(cmd_index) = COMMAND_DONE;
                   REG_FIRST_CMD =cmd_index;
-                //   if (cmd_index ==( MAX_JOB_NUM-1))
-                //     cmd_index = 0;
-                // else
-                //     cmd_index++;
-                break;
-            case COMMAND_NOVA_FILE_R_EXT:
-                  kernel_nova_file_r_ext(cmd_index);
-                  REG_CMD(cmd_index) = COMMAND_DONE;
-                  REG_FIRST_CMD =cmd_index;
-                //   if (cmd_index ==( MAX_JOB_NUM-1))
-                //     cmd_index = 0;
-                // else
-                //     cmd_index++;
+                  if (cmd_index ==( MAX_JOB_NUM-1))
+                    cmd_index = 0;
+                else
+                    cmd_index++;
                 break;
             case COMMAND_NOVA_FILE_W:
                 kernel_nova_file_w(cmd_index);
                 REG_CMD(cmd_index) = COMMAND_DONE;
                 REG_FIRST_CMD =cmd_index;
-                // if (cmd_index == (MAX_JOB_NUM-1))
-                //     cmd_index = 0;
-                // else
-                //     cmd_index++;
-                break;
-            case COMMAND_NOVA_FILE_EXT:
-                kernel_nova_file_w_ext(cmd_index);
-                REG_CMD(cmd_index) = COMMAND_DONE;
-                REG_FIRST_CMD =cmd_index;
-                // if (cmd_index == (MAX_JOB_NUM-1))
-                //     cmd_index = 0;
-                // else
-                //     cmd_index++;
+                if (cmd_index == (MAX_JOB_NUM-1))
+                    cmd_index = 0;
+                else
+                    cmd_index++;
                 break;
             default:
                  REG_FIRST_CMD =cmd_index;
