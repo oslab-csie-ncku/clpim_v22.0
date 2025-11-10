@@ -65,7 +65,8 @@ PIM_SPM_REG_FLUSH_SIZE=0x450000008
 PIM_SE_MEM_START=0x440000000 # Must be after the host physical memory range
 PIM_SE_MEM_SIZE=512kB # The min size for gem5 setting, but we use less than 16kB
 #PIM_KERNEL=/home/johnnylab/work/gem5_images/pim-kernel
-PIM_KERNEL=/home/a1933b/gem5-clpim_v22.0.0.0/master_work/pim-kernel/pim-kernel
+# PIM_KERNEL=/home/a1933b/gem5-clpim_v22.0.0.0/master_work/pim-kernel/pim-kernel
+PIM_KERNEL=/gem5/clpim_v22.0/master_work/pim-kernel/pim-kernel
 PIM_SE_INPUT=''
 PIM_SE_OUTPUT=pim-stdout
 PIM_SE_ERROUT=pim-errout
@@ -79,14 +80,15 @@ PIM_STACK_NUM=$1
 SCRIPT=./master_work/workloads/real/fileserver.f
 
 #sudo bash  ./mount.sh /home/a1933b/gem5-pim/master_work/gem5_images/x86-system/disks/x86-example.img s_tmp
-KERNEL=/home/a1933b/gem5-clpim_v22.0.0.0/master_work/gem5_images/x86-system/binaries/x86_64-vmlinux-4.18.0-nova-pohao-baseline-$1
+# KERNEL=/home/a1933b/gem5-clpim_v22.0.0.0/master_work/gem5_images/x86-system/binaries/x86_64-vmlinux-4.18.0-nova-pohao-baseline-$1
+KERNEL=/gem5/clpim_v22.0/master_work/gem5_images/x86-system/binaries/x86_64-vmlinux-4.18.0-nova-pohao-baseline-$1-gem5
 # KERNEL=x86_64-vmlinux-4.18.0-nova-pohao-$1-$2
-CMDLINE="earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/hda1 ddlhash_entries=131072 nokaslr norandmaps memmap=8G!9G"
+# CMDLINE="earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/hda1 ddlhash_entries=131072 nokaslr norandmaps memmap=8G!9G"
 CMDLINE="earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/hda1 nokaslr norandmaps memmap=8G!9G"
 
 # DISK_IMAGE=x86-example.img
 #DISK_IMAGE=/home/johnnylab/work/gem5_images/x86-filebench_syscall.img
-DISK_IMAGE=/home/a1933b/gem5-clpim_v22.0.0.0/master_work/gem5_images/x86-system/disks/x86-example.img
+DISK_IMAGE=/gem5/clpim_v22.0/master_work/gem5_images/x86-system/disks/x86-ubuntu-14.04.6_v1.img
 #3456 cpu read sucess and same vaddr
 #3457 dpu read no cache
 
