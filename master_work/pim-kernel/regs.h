@@ -41,22 +41,14 @@
 //  * Register map(fixed)
 //  */
 // #define REG_FLUSH_ADDR *((volatile uint64_t *)(SPM_START))
-// #define REG_FLUSH_SIZE *((volatile uint32_t *) \
-// (SPM_START + REG_FLUSH_SIZE_OFFSET))
+// #define REG_FLUSH_SIZE *((volatile uint32_t *)(SPM_START + REG_FLUSH_SIZE_OFFSET))
+// #define REG_FIRST_CMD  *((volatile uint8_t  *)(SPM_START + REG_FIRST_CMD_OFFSET))
 
-// #define REG_FIRST_CMD  *((volatile uint8_t  *) \ 
-// (SPM_START + REG_FIRST_CMD_OFFSET))
-
-// #define REG_CMD(N)     *((volatile uint8_t  *)\
-// (REG_BASE + ((N) * PIM_JOB_SIZE) + REG_CMD_OFFSET)) /* 1 bytes */
-// #define REG_0(N)       *((volatile uint64_t *)\
-// (REG_BASE + ((N) * PIM_JOB_SIZE) + REG_0_OFFSET)) /* 8 bytes */
-// #define REG_1(N)       *((volatile uint64_t *)\
-// (REG_BASE + ((N) * PIM_JOB_SIZE) + REG_1_OFFSET)) /* 8 bytes */
-// #define REG_2(N)       *((volatile uint64_t *)\
-// (REG_BASE + ((N) * PIM_JOB_SIZE) + REG_2_OFFSET)) /* 8 bytes */
-// #define REG_3(N)       *((volatile uint64_t *)\
-// (REG_BASE + ((N) * PIM_JOB_SIZE) + REG_3_OFFSET)) /* 8 bytes */
+// #define REG_CMD(N)     *((volatile uint8_t  *)(REG_BASE + ((N) * PIM_JOB_SIZE) + REG_CMD_OFFSET)) /* 1 bytes */
+// #define REG_0(N)       *((volatile uint64_t *)(REG_BASE + ((N) * PIM_JOB_SIZE) + REG_0_OFFSET)) /* 8 bytes */
+// #define REG_1(N)       *((volatile uint64_t *)(REG_BASE + ((N) * PIM_JOB_SIZE) + REG_1_OFFSET)) /* 8 bytes */
+// #define REG_2(N)       *((volatile uint64_t *)(REG_BASE + ((N) * PIM_JOB_SIZE) + REG_2_OFFSET)) /* 8 bytes */
+// #define REG_3(N)       *((volatile uint64_t *)(REG_BASE + ((N) * PIM_JOB_SIZE) + REG_3_OFFSET)) /* 8 bytes */
 
 // /**
 //  * The size of each register
@@ -136,8 +128,7 @@
 #define REG_FLUSH_SIZE *((volatile uint32_t *)(SPM_START + REG_FLUSH_SIZE_OFFSET))
 #define REG_FIRST_CMD  *((volatile uint8_t  *)(SPM_START + REG_FIRST_CMD_OFFSET))
 
-#define REG_CMD(N)     *((volatile uint8_t  *)\
-(REG_BASE + ((N) * PIM_JOB_SIZE) + REG_CMD_OFFSET)) /* 1 bytes */
+#define REG_CMD(N)     *((volatile uint8_t  *)(REG_BASE + ((N) * PIM_JOB_SIZE) + REG_CMD_OFFSET)) /* 1 bytes */
 #define REG_0(N)       *((volatile uint64_t *)(REG_BASE + ((N) * PIM_JOB_SIZE) + REG_0_OFFSET)) /* 8 bytes */
 #define REG_1(N)       *((volatile uint64_t *)(REG_BASE + ((N) * PIM_JOB_SIZE) + REG_1_OFFSET)) /* 8 bytes */
 #define REG_2(N)       *((volatile uint64_t *)(REG_BASE + ((N) * PIM_JOB_SIZE) + REG_2_OFFSET)) /* 8 bytes */
