@@ -35,14 +35,18 @@ FS_CONFIG=./configs/example/fs_pim.py
 
 OUTDIR=pim_m5out
 # OUTDIR=pim_m5out_temp
-DEBUG_FLAGS=PseudoInst #,CacheFlushRange,ScratchpadMemory
 
+DEBUG_FLAGS=PseudoInst,NVM #,MemoryAccess #,CacheFlushRange,ScratchpadMemory
+DEBUG_FILE=debug_trace.txt
 
 NUM_CPUS=$1
 CPU_TYPE=AtomicSimpleCPU # AtomicSimpleCPU TimingSimpleCPU DerivO3CPU
 RESTORE_CPU_TYPE=AtomicSimpleCPU
+
 CHECKPOINT_DIR=pim_m5out
 # CHECKPOINT_DIR=./copy_pim_m5out/ato_v3_cpu_1_pim_m5out_20251125_004018
+# CHECKPOINT_DIR=./copy_pim_m5out/ato_v4_dpu_1_pim_m5out_20260120_162147
+
 CHECKPOINT_NUM=$2
 CPU_CLOCK=2GHz
 
@@ -91,8 +95,11 @@ SCRIPT=./master_work/workloads/real/fileserver.f
 # KERNEL=/home/a1933b/gem5-clpim_v22.0.0.0/master_work/gem5_images/x86-system/binaries/x86_64-vmlinux-4.18.0-nova-pohao-baseline-$1
 # KERNEL=/home/oslab-gem5-1/chung_workspace/sim_gem5/master_work/gem5_images/x86-system/binaries/x86_64-vmlinux-4.18.0-nova-pohao-baseline-$1
 
-# KERNEL=./master_work/gem5_images/x86-system/binaries/x86_64-vmlinux-4.18.0-nova-pohao-baseline-$1-gem5
-KERNEL=./master_work/gem5_images/x86-system/binaries/x86_64-vmlinux-4.18.0-nova-pohao-baseline-$1-CrDw-gem5
+KERNEL=./master_work/gem5_images/x86-system/binaries/x86_64-vmlinux-4.18.0-nova-pohao-baseline-1-DrDw_v9-gem5
+# KERNEL=./master_work/gem5_images/x86-system/binaries/x86_64-vmlinux-4.18.0-nova-pohao-baseline-1-DrDw_v7-gem5
+# KERNEL=./master_work/gem5_images/x86-system/binaries/x86_64-vmlinux-4.18.0-nova-pohao-baseline-1-DrCw_v8-gem5
+# KERNEL=./master_work/gem5_images/x86-system/binaries/x86_64-vmlinux-4.18.0-nova-pohao-baseline-$1-CrDw-gem5
+# KERNEL=./master_work/gem5_images/x86-system/binaries/x86_64-vmlinux-4.18.0-nova-pohao-baseline-$1-DrDwDPUtaskwaitall-gem5
 # KERNEL=./master_work/gem5_images/x86-system/binaries/x86_64-vmlinux-4.18.0-nova-pohao-baseline-$1-qemu
 # KERNEL=x86_64-vmlinux-4.18.0-nova-pohao-$1-$2
 # CMDLINE="earlyprintk=ttyS0 console=ttyS0 lpj=7999923 root=/dev/hda1 ddlhash_entries=131072 nokaslr norandmaps memmap=8G!9G"
@@ -110,6 +117,7 @@ if [ "$#" -gt 1 ]; then
  "$GEM5_TARGET" \
     --outdir="$OUTDIR" \
     --debug-flags="$DEBUG_FLAGS" \
+    --debug-file="$DEBUG_FILE" \
     "$FS_CONFIG" \
     --num-cpus="$NUM_CPUS" \
     --cpu-type="$CPU_TYPE" \
@@ -155,6 +163,7 @@ elif [ "$#" -eq 1 ]; then
    "$GEM5_TARGET" \
     --outdir="$OUTDIR" \
     --debug-flags="$DEBUG_FLAGS" \
+    --debug-file="$DEBUG_FILE" \
     "$FS_CONFIG" \
     --num-cpus="$NUM_CPUS" \
     --cpu-type="$CPU_TYPE" \

@@ -124,26 +124,26 @@ void kernel_dl_lookup_and_check(volatile uint8_t cmd_index)
             REG_0(cmd_index) = dl_entry->ino;
     }
 }
+__attribute__((optimize("-O0")))
 void kernel_nova_file_r(volatile uint8_t cmd_index)
 {
-
-     uint64_t src_addr = REG_0(cmd_index);
-    uint64_t dst_addr = REG_1(cmd_index);
-    uint64_t size = REG_2(cmd_index);
-
-    clflush(dst_addr,size);
-    memcpy_v((void *)dst_addr, (void *)src_addr, size);
+    volatile uint64_t src_addr = REG_0(cmd_index);
+    volatile uint64_t dst_addr = REG_1(cmd_index);
+    volatile uint64_t size = REG_2(cmd_index);
+    
+    clflush(dst_addr, size);
+    memcpy_v((volatile void *)dst_addr, (volatile void *)src_addr, size);
 }
 
-
+__attribute__((optimize("-O0")))
 void kernel_nova_file_w(volatile uint8_t cmd_index)
 {
-    uint64_t src_addr = REG_0(cmd_index);
-    uint64_t dst_addr = REG_1(cmd_index);
-    uint64_t size = REG_2(cmd_index);
+    volatile uint64_t src_addr = REG_0(cmd_index);
+    volatile uint64_t dst_addr = REG_1(cmd_index);
+    volatile uint64_t size = REG_2(cmd_index);
 
-    clflush(src_addr,size);
-    memcpy_v((void *)dst_addr, (void *)src_addr, size);
+    clflush(src_addr, size);
+    memcpy_v((volatile void *)dst_addr, (volatile void *)src_addr, size);
 }
 
 int pim_start()

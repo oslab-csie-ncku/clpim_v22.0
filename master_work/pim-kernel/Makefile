@@ -121,6 +121,7 @@ all: $(BINARY)
 
 $(BINARY): $(SOURCE) $(patsubst %.c, %.h, $(SOURCE)) $(REGS)
 	$(CC) \
+	-O0 \
 	-g \
 	$(INCLUDE) \
 	-D$(ARGS) \
